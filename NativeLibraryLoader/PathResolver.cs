@@ -1,5 +1,4 @@
-﻿using Microsoft.DotNet.PlatformAbstractions;
-using Microsoft.Extensions.DependencyModel;
+﻿using Microsoft.Extensions.DependencyModel;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -55,20 +54,48 @@ namespace NativeLibraryLoader
         private bool TryLocateNativeAssetFromDeps(string name, out string appLocalNativePath, out string depsResolvedPath)
         {
             DependencyContext defaultContext = DependencyContext.Default;
-            if (defaultContext == null)
+         
+            if (defaultContext is null)
             {
                 appLocalNativePath = null;
                 depsResolvedPath = null;
                 return false;
             }
 
-            string currentRID = Microsoft.DotNet.PlatformAbstractions.RuntimeEnvironment.GetRuntimeIdentifier();
-            List<string> allRIDs = new List<string>();
+            List<string> allRIDs = [];
+
+            string current_RID_OS = null;
+
+            string current_RID_Arch = RuntimeInformation.OSArchitecture switch
+            {
+                Architecture.X64 => "x64",
+                Architecture.X86 => "x86",
+                Architecture.Arm => "arm",
+                Architecture.Arm64 => "arm64",
+                _ => throw new NotSupportedException(),
+            };
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                current_RID_OS = "win";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                current_RID_OS = "linux";
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                current_RID_OS = "osx";
+            }
+
+            string currentRID = $"{current_RID_OS}-{current_RID_Arch}";
+
             allRIDs.Add(currentRID);
+
             if (!AddFallbacks(allRIDs, currentRID, defaultContext.RuntimeGraph))
             {
                 string guessedFallbackRID = GuessFallbackRID(currentRID);
-                if (guessedFallbackRID != null)
+                if (guessedFallbackRID is null)
                 {
                     allRIDs.Add(guessedFallbackRID);
                     AddFallbacks(allRIDs, guessedFallbackRID, defaultContext.RuntimeGraph);
